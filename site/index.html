@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#111813" />
+  <title>Relay — Universal AI Capability Platform</title>
+  <meta name="description" content="Relay universal AI capability platform live web edition." />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">R</span><span>Relay</span></div>
+      <nav aria-label="Primary">
+        <button class="nav-item active" data-view="create"><span>＋</span>Create</button>
+        <button class="nav-item" data-view="runs"><span>◌</span>Runs</button>
+        <button class="nav-item" data-view="assets"><span>◇</span>Assets</button>
+        <button class="nav-item" data-view="connections"><span>⌁</span>Connections</button>
+      </nav>
+      <div class="sidebar-foot"><span class="status-dot"></span><span>Web demo online</span></div>
+    </aside>
+
+    <main class="main">
+      <section class="view active" id="view-create">
+        <header class="hero">
+          <span class="eyebrow" id="capability-label">Talk</span>
+          <h1>What do you want to make?</h1>
+          <p>One composer for ideas, images, motion, and analysis.</p>
+        </header>
+
+        <div class="studio-grid">
+          <section class="composer-card">
+            <div class="capability-tabs" role="tablist">
+              <button class="capability-tab active" data-capability="talk">Talk</button>
+              <button class="capability-tab" data-capability="image">Image</button>
+              <button class="capability-tab" data-capability="video">Video</button>
+              <button class="capability-tab" data-capability="analyze">Analyze</button>
+            </div>
+
+            <div class="attached hidden" id="attached-asset"></div>
+            <textarea id="prompt" placeholder="Ask, create, transform, or analyze"></textarea>
+
+            <div class="advanced-panel hidden" id="advanced-panel">
+              <label>Aspect ratio
+                <select id="aspect-ratio"><option>4:3</option><option>1:1</option><option>3:4</option></select>
+              </label>
+              <label>Variation
+                <input id="variation" type="range" min="1" max="8" value="3" />
+              </label>
+            </div>
+
+            <footer class="composer-footer">
+              <div class="model-button"><span class="model-mark">D</span><span><strong>Relay Demo</strong><small>Local browser runtime</small></span><b>⌄</b></div>
+              <div class="composer-tools">
+                <button class="tool-button" id="advanced-button">Sliders</button>
+                <label class="tool-button file-button">Attach<input id="file-input" type="file" hidden /></label>
+                <button class="run-button" id="run-button" aria-label="Run">↑</button>
+              </div>
+            </footer>
+          </section>
+
+          <section class="result-card hidden" id="result-card" aria-live="polite">
+            <div class="result-head"><span id="result-stage">Ready</span><button id="close-result">×</button></div>
+            <div class="result-body" id="result-body"></div>
+            <div class="result-actions" id="result-actions"></div>
+          </section>
+        </div>
+
+        <div class="footnote"><span class="status-dot"></span>Demo Mode runs in the browser. Repository-backed production code is preserved in GitHub.</div>
+      </section>
+
+      <section class="view" id="view-runs">
+        <header class="page-header"><div><h1>Runs</h1><p>Every browser demo request is saved locally on this device.</p></div><button class="button" id="clear-runs">Clear</button></header>
+        <div class="toolbar"><div class="filter-tabs"><button class="filter active" data-filter="all">All</button><button class="filter" data-filter="succeeded">Completed</button><button class="filter" data-filter="failed">Failed</button></div></div>
+        <div class="list" id="runs-list"></div>
+      </section>
+
+      <section class="view" id="view-assets">
+        <header class="page-header"><div><h1>Assets</h1><p>Generated demo outputs and uploaded files live here.</p></div></header>
+        <div class="asset-grid" id="assets-grid"></div>
+      </section>
+
+      <section class="view" id="view-connections">
+        <header class="page-header"><div><h1>Connections</h1><p>Provider definitions live separately from the creation surface.</p></div><button class="button primary" id="add-connection">Add connection</button></header>
+        <div class="connection-list" id="connection-list"></div>
+        <div class="security-note">Secrets are never stored by this public web demo. The full repository implementation keeps provider credentials server-side.</div>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal hidden" id="connection-modal">
+    <div class="dialog">
+      <div class="dialog-head"><div><span class="eyebrow">Connection</span><h2>Add provider</h2></div><button id="close-modal">×</button></div>
+      <div class="dialog-body">
+        <label>Name<input id="connection-name" value="My API" /></label>
+        <label>Type<select id="connection-kind"><option value="openai_compatible">OpenAI Compatible</option><option value="openai_images">OpenAI Images</option><option value="custom">Custom API</option></select></label>
+        <label>Base URL<input id="connection-url" placeholder="https://api.example.com/v1" /></label>
+        <label>Description<textarea id="connection-description" placeholder="What this provider is used for"></textarea></label>
+      </div>
+      <div class="dialog-foot"><button class="button" id="cancel-modal">Cancel</button><button class="button primary" id="save-connection">Save</button></div>
+    </div>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
