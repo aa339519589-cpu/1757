@@ -8,10 +8,12 @@ export const assetRoot = path.join(dataRoot, "assets");
 mkdirSync(assetRoot, { recursive: true, mode: 0o700 });
 
 const globalForDb = globalThis as unknown as { __relayDb?: DatabaseSync };
+const buildMode = process.env.RELAY_BUILD_MODE === "1";
+const databasePath = buildMode ? ":memory:" : path.join(dataRoot, "platform.sqlite");
 
-export const db = globalForDb.__relayDb ?? new DatabaseSync(path.join(dataRoot, "platform.sqlite"));
+export const db = globalForDb.__relayDb ?? new DatabaseSync(databasePath);
 
-if (process.env.NODE_ENV !== "production") {
+if (process.env.NODE_ENV !== "production" && !buildMode) {
   globalForDb.__relayDb = db;
 }
 
