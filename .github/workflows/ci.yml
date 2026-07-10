@@ -32,5 +32,42 @@ jobs:
         run: pnpm test
       - name: Build
         run: pnpm build
+      - name: Production API smoke test
+        shell: bash
+        env:
+          PORT: "3100"
+        run: |
+          set -euo pipefail
+          pnpm start > /tmp/relay-start.log 2>&1 &
+          app_pid=$!
+          trap 'kill "$app_pid" 2>/dev/null || true; cat /tmp/relay-start.log' EXIT
+
+          ready=0
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:3100/api/health > /tmp/health.json; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            echo "Relay production server did not become healthy."
+            exit 1
+          fi
+
+          curl -fsS http://127.0.0.1:3100/api/models | tee /tmp/models.json
+          curl -fsS http://127.0.0.1:3100/api/connections | tee /tmp/connections.json
+
+          node <<'NODE'
+          const fs = require('node:fs');
+          const models = JSON.parse(fs.readFileSync('/tmp/models.json', 'utf8'));
+          const connections = JSON.parse(fs.readFileSync('/tmp/connections.json', 'utf8'));
+          if (!Array.isArray(models.models) || models.models.length < 1) {
+            throw new Error('Production /api/models returned no models.');
+          }
+          if (!Array.isArray(connections.connections) || !connections.connections.some((connection) => connection.id === 'demo')) {
+            throw new Error('Production /api/connections did not return Demo Mode.');
+          }
+          NODE
       - name: Build deployment image
         run: docker build --tag relay:test .
