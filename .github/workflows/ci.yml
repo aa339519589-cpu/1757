@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
   verify:
@@ -31,7 +32,31 @@ jobs:
       - name: Test
         run: pnpm test
       - name: Build
-        run: pnpm build
+        id: build
+        shell: bash
+        run: |
+          set +e
+          pnpm build > /tmp/build.log 2>&1
+          status=$?
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          tail -n 180 /tmp/build.log
+          exit 0
+      - name: Report build failure
+        if: steps.build.outputs.status != '0' && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          {
+            echo '### Production build failure'
+            echo '```text'
+            tail -n 180 /tmp/build.log
+            echo '```'
+          } > /tmp/build-comment.md
+          gh pr comment "${{ github.event.pull_request.number }}" --body-file /tmp/build-comment.md
+      - name: Fail failed build
+        if: steps.build.outputs.status != '0'
+        run: exit 1
       - name: Production API smoke test
         shell: bash
         env:
@@ -57,16 +82,21 @@ jobs:
 
           curl -fsS http://127.0.0.1:3100/api/models | tee /tmp/models.json
           curl -fsS http://127.0.0.1:3100/api/connections | tee /tmp/connections.json
+          curl -fsS http://127.0.0.1:3100/api/version | tee /tmp/version.json
 
           node <<'NODE'
           const fs = require('node:fs');
           const models = JSON.parse(fs.readFileSync('/tmp/models.json', 'utf8'));
           const connections = JSON.parse(fs.readFileSync('/tmp/connections.json', 'utf8'));
+          const version = JSON.parse(fs.readFileSync('/tmp/version.json', 'utf8'));
           if (!Array.isArray(models.models) || models.models.length < 1) {
             throw new Error('Production /api/models returned no models.');
           }
           if (!Array.isArray(connections.connections) || !connections.connections.some((connection) => connection.id === 'demo')) {
             throw new Error('Production /api/connections did not return Demo Mode.');
+          }
+          if (version.build !== 'render-api-404-fix') {
+            throw new Error('Production /api/version returned an unexpected build marker.');
           }
           NODE
       - name: Build deployment image
