@@ -12,13 +12,13 @@ permissions:
 jobs:
   verify-live-site:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 5
     steps:
-      - name: Wait for public site
+      - name: Verify public web
         shell: bash
         run: |
-          url="https://aa339519589-cpu.github.io/1757/"
-          for attempt in $(seq 1 36); do
+          url="https://cdn.jsdelivr.net/gh/aa339519589-cpu/1757@main/site/index.html"
+          for attempt in $(seq 1 18); do
             status=$(curl -L -sS -o /tmp/site.html -w '%{http_code}' "$url" || true)
             if [ "$status" = "200" ] && grep -q '<title>Relay' /tmp/site.html; then
               echo "Live site verified: $url"
