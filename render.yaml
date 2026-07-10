@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: relay-1757
+    runtime: docker
+    repo: https://github.com/aa339519589-cpu/1757
+    branch: main
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeployTrigger: checksPass
+    renderSubdomainPolicy: enabled
+    envVars:
+      - key: PORT
+        value: "3000"
+      - key: CAPABILITY_MASTER_KEY
+        generateValue: true
+      - key: ALLOW_LOCALHOST_CONNECTORS
+        value: "false"
+      - key: ALLOW_PRIVATE_CONNECTORS
+        value: "false"
+      - key: ALLOW_INSECURE_CONNECTORS
+        value: "false"
+      - key: MAX_UPLOAD_MB
+        value: "25"
+      - key: MAX_PROVIDER_RESPONSE_MB
+        value: "50"
+      - key: RUN_WORKER_INTERVAL_MS
+        value: "700"
