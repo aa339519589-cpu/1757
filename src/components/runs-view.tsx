@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Activity, ChevronDown, CircleAlert, Clock3, RefreshCw, Square } from "lucide-react";
 import type { RunRecord, RunStatus } from "@/lib/types";
@@ -23,12 +23,17 @@ export function RunsView() {
     try {
       const data = await api<{ runs: RunRecord[] }>("/api/runs?limit=100");
       setRuns(data.runs);
+      setError(null);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Runs could not be loaded.");
     } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => void refresh(), 0);
+    return () => window.clearTimeout(timer);
+  }, [refresh]);
+
   useEffect(() => {
     if (!runs.some((run) => activeStatuses.has(run.status))) return;
     const timer = window.setInterval(() => void refresh(), 1_000);
@@ -36,17 +41,18 @@ export function RunsView() {
   }, [runs, refresh]);
 
   const active = runs.find((run) => activeStatuses.has(run.status));
-  const visible = useMemo(() => runs.filter((run) => {
+  const visible = runs.filter((run) => {
     if (filter === "all") return true;
     if (filter === "active") return activeStatuses.has(run.status);
     if (filter === "failed") return run.status === "failed" || run.status === "cancelled";
     return run.status === "succeeded";
-  }), [runs, filter]);
+  });
 
   async function cancel(id: string) {
     try { await api(`/api/runs/${id}`, { method: "DELETE" }); await refresh(); }
     catch (requestError) { setError(requestError instanceof ApiError ? requestError.message : "The run could not be cancelled."); }
   }
+
   async function retry(id: string) {
     try { await api(`/api/runs/${id}/retry`, { method: "POST" }); await refresh(); }
     catch (requestError) { setError(requestError instanceof ApiError ? requestError.message : "The run could not be retried."); }

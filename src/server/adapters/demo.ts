@@ -1,10 +1,9 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
+import { mkdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import ffmpegPath from "ffmpeg-static";
 import sharp from "sharp";
-import type { NormalizedOutput } from "@/lib/types";
 import { dataRoot } from "../db";
 import { PlatformError } from "../errors";
 import { assetBytes } from "../storage";
@@ -63,13 +62,14 @@ async function makeImage(prompt: string, aspectRatio: string, variation: number)
 }
 
 function runFfmpeg(args: string[]): Promise<void> {
-  if (!ffmpegPath) throw new PlatformError("DEMO_VIDEO_UNAVAILABLE", "The local video encoder is unavailable.", 503);
+  const executable = ffmpegPath;
+  if (!executable) throw new PlatformError("DEMO_VIDEO_UNAVAILABLE", "The local video encoder is unavailable.", 503);
   return new Promise((resolve, reject) => {
-    const child = spawn(ffmpegPath, args, { stdio: ["ignore", "ignore", "pipe"] });
+    const child = spawn(executable, args, { stdio: ["ignore", "ignore", "pipe"] as const });
     let detail = "";
-    child.stderr.on("data", (chunk) => { detail = `${detail}${String(chunk)}`.slice(-2_000); });
+    child.stderr.on("data", (chunk: Buffer) => { detail = `${detail}${String(chunk)}`.slice(-2_000); });
     child.once("error", reject);
-    child.once("close", (code) => code === 0 ? resolve() : reject(new Error(`Video encoder exited with ${code}: ${detail}`)));
+    child.once("close", (code: number | null) => code === 0 ? resolve() : reject(new Error(`Video encoder exited with ${code}: ${detail}`)));
   });
 }
 

@@ -61,6 +61,7 @@ const draftSchema = z.object({
   kind: z.enum(["openai_compatible", "openai_images", "custom"]),
   name: z.string().min(1).max(80),
   description: z.string().max(240).optional(),
+  icon: z.string().max(2).optional(),
   baseUrl: z.string().url().max(500),
   apiKey: z.string().max(1_000).optional(),
   modelId: z.string().max(160).optional(),

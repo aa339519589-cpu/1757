@@ -21,7 +21,7 @@ function inferCapability(prompt: string, asset?: AssetRecord): Capability {
   if (/\b(video|animate|motion|moving|move)\b|视频|动画|动起来/.test(value)) return "video";
   if (/\b(analy[sz]e|inspect|summari[sz]e|extract|review)\b|分析|总结|提取/.test(value)) return "analyze";
   if (/\b(image|picture|photo|illustration|poster|draw|render)\b|生成.{0,5}(图|海报)|图片|画一/.test(value)) return "image";
-  if (asset && asset.kind !== "text") return asset.kind === "image" ? "analyze" : "analyze";
+  if (asset && asset.kind !== "text") return "analyze";
   return "talk";
 }
 
@@ -56,11 +56,21 @@ export function CreateStudio() {
   const manualCapability = useRef(false);
 
   const capabilityModels = useMemo(() => models.filter((model) => model.capability === capability), [models, capability]);
-  const selected = models.find((model) => model.id === selectedId) ?? capabilityModels[0] ?? null;
+  const selected = capabilityModels.find((model) => model.id === selectedId) ?? capabilityModels[0] ?? null;
+  const formValues = useMemo(() => {
+    if (!selected) return values;
+    const next = defaultValues(selected, values);
+    if (pendingAsset) {
+      const field = selected.inputSchema.find((candidate) => (candidate.type === "asset" || candidate.type === "file") && (!candidate.accept?.length || candidate.accept.includes(pendingAsset.kind)));
+      if (field) next[field.id] = pendingAsset.id;
+      else if (pendingAsset.kind === "text" && pendingAsset.text && selected.inputSchema.some((candidate) => candidate.id === "prompt")) next.prompt = pendingAsset.text;
+    }
+    return next;
+  }, [selected, values, pendingAsset]);
   const attachedAsset = useMemo(() => {
-    const assetId = Object.values(values).find((value) => typeof value === "string" && assets.some((asset) => asset.id === value));
+    const assetId = Object.values(formValues).find((value) => typeof value === "string" && assets.some((asset) => asset.id === value));
     return assets.find((asset) => asset.id === assetId) ?? pendingAsset;
-  }, [values, assets, pendingAsset]);
+  }, [formValues, assets, pendingAsset]);
 
   useEffect(() => {
     let alive = true;
@@ -82,27 +92,11 @@ export function CreateStudio() {
     return () => { alive = false; };
   }, [searchParams]);
 
+  const runId = run?.id;
+  const runStatus = run?.status;
   useEffect(() => {
-    if (!capabilityModels.length) return;
-    if (!selected || selected.capability !== capability) setSelectedId(capabilityModels[0].id);
-  }, [capability, capabilityModels, selected]);
-
-  useEffect(() => {
-    if (!selected) return;
-    setValues((previous) => {
-      const next = defaultValues(selected, previous);
-      if (pendingAsset) {
-        const field = selected.inputSchema.find((candidate) => (candidate.type === "asset" || candidate.type === "file") && (!candidate.accept?.length || candidate.accept.includes(pendingAsset.kind)));
-        if (field) next[field.id] = pendingAsset.id;
-        else if (pendingAsset.kind === "text" && pendingAsset.text && selected.inputSchema.some((candidate) => candidate.id === "prompt")) next.prompt = pendingAsset.text;
-      }
-      return next;
-    });
-  }, [selected, pendingAsset]);
-
-  useEffect(() => {
-    if (!run || ["succeeded", "failed", "cancelled"].includes(run.status)) return;
-    const source = new EventSource(`/api/runs/${run.id}/events`);
+    if (!runId || !runStatus || ["succeeded", "failed", "cancelled"].includes(runStatus)) return;
+    const source = new EventSource(`/api/runs/${runId}/events`);
     source.addEventListener("run", (event) => {
       const next = JSON.parse((event as MessageEvent).data) as RunRecord;
       setRun(next);
@@ -113,10 +107,10 @@ export function CreateStudio() {
     });
     source.onerror = () => {
       source.close();
-      void api<{ run: RunRecord }>(`/api/runs/${run.id}`).then((data) => setRun(data.run)).catch(() => undefined);
+      void api<{ run: RunRecord }>(`/api/runs/${runId}`).then((data) => setRun(data.run)).catch(() => undefined);
     };
     return () => source.close();
-  }, [run?.id, run?.status]);
+  }, [runId, runStatus]);
 
   const updateValue = useCallback((id: string, value: unknown) => setValues((current) => ({ ...current, [id]: value })), []);
 
@@ -143,7 +137,7 @@ export function CreateStudio() {
       const { asset } = await api<{ asset: AssetRecord }>("/api/assets", { method: "POST", body: form });
       setAssets((current) => [asset, ...current]);
       setPendingAsset(asset);
-      if (!manualCapability.current) setCapability(inferCapability(String(values.prompt ?? ""), asset));
+      if (!manualCapability.current) setCapability(inferCapability(String(formValues.prompt ?? ""), asset));
     } catch (requestError) {
       setError(requestError instanceof ApiError ? requestError : new ApiError("The file could not be uploaded."));
     } finally {
@@ -159,7 +153,7 @@ export function CreateStudio() {
       const result = await api<{ run: RunRecord }>("/api/runs", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ manifestId: selected.id, values, parentRunId: parentRunId ?? undefined, idempotencyKey: crypto.randomUUID() }),
+        body: JSON.stringify({ manifestId: selected.id, values: formValues, parentRunId: parentRunId ?? undefined, idempotencyKey: crypto.randomUUID() }),
       });
       setRun(result.run);
     } catch (requestError) {
@@ -240,12 +234,12 @@ export function CreateStudio() {
             className="composer-prompt"
             aria-label={promptField?.label ?? "Prompt"}
             placeholder={promptField?.placeholder ?? "Ask, create, transform, or analyze"}
-            value={String(values.prompt ?? "")}
+            value={String(formValues.prompt ?? "")}
             onChange={(event) => updatePrompt(event.target.value)}
             disabled={phase === "running"}
           />
-          {selected && <SchemaFields manifest={selected} values={values} assets={assets} advanced={false} onChange={updateValue} />}
-          {advanced && selected && <SchemaFields manifest={selected} values={values} assets={assets} advanced onChange={updateValue} />}
+          {selected && <SchemaFields manifest={selected} values={formValues} assets={assets} advanced={false} onChange={updateValue} />}
+          {advanced && selected && <SchemaFields manifest={selected} values={formValues} assets={assets} advanced onChange={updateValue} />}
           {error && <div className="inline-error" role="alert"><strong>{error.message}</strong>{error.detail && <span>{error.detail}</span>}</div>}
           <footer className="composer-footer">
             <ModelPicker models={capabilityModels} selectedId={selected?.id ?? ""} onSelect={(model) => { setSelectedId(model.id); setError(null); }} />
@@ -253,7 +247,7 @@ export function CreateStudio() {
               {hasAdvanced && <button className={`tool-button ${advanced ? "active" : ""}`} type="button" onClick={() => setAdvanced((value) => !value)} aria-expanded={advanced}><SlidersHorizontal size={17} /><span>Advanced</span><ChevronDown size={14} /></button>}
               <input ref={fileRef} type="file" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file); }} />
               <button className="tool-button attachment-button" type="button" onClick={() => fileRef.current?.click()} disabled={uploading} aria-label="Attach a file"><Paperclip size={17} /><span>{uploading ? "Uploading" : "Attach"}</span></button>
-              <button className="run-button" type="button" onClick={() => void startRun()} disabled={loading || !selected || phase === "running" || !String(values.prompt ?? "").trim()} aria-label="Run"><ArrowUp size={18} /></button>
+              <button className="run-button" type="button" onClick={() => void startRun()} disabled={loading || !selected || phase === "running" || !String(formValues.prompt ?? "").trim()} aria-label="Run"><ArrowUp size={18} /></button>
             </div>
           </footer>
         </section>

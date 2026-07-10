@@ -5,19 +5,21 @@
   "scripts": {
     "dev": "concurrently -k -n web,worker -c cyan,gray \"next dev --hostname 127.0.0.1 --port 3000\" \"tsx watch src/server/worker.ts\"",
     "build": "next build",
-    "start": "concurrently -k -n web,worker -c cyan,gray \"next start --hostname 127.0.0.1 --port 3000\" \"tsx src/server/worker.ts\"",
+    "start": "concurrently -k -n web,worker -c cyan,gray \"next start --hostname 0.0.0.0 --port 3000\" \"tsx src/server/worker.ts\"",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "concurrently": "^9.2.1",
     "ffmpeg-static": "^5.2.0",
     "lucide-react": "^1.24.0",
     "next": "16.2.10",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "sharp": "^0.34.5",
+    "tsx": "^4.20.6",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -25,10 +27,8 @@
     "@types/node": "^24.10.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "concurrently": "^9.2.1",
     "eslint": "^9.39.0",
     "eslint-config-next": "16.2.10",
-    "tsx": "^4.20.6",
     "typescript": "^5.9.3",
     "vitest": "^4.0.8"
   }
