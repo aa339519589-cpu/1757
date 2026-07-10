@@ -1,21 +1,20 @@
 services:
   - type: web
     name: relay-1757
-    runtime: docker
+    runtime: node
     repo: https://github.com/aa339519589-cpu/1757
     branch: main
     plan: free
     region: oregon
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
+    buildCommand: npm install --global pnpm@10 && pnpm install && pnpm build
+    startCommand: npm run start
     healthCheckPath: /api/health
-    autoDeployTrigger: checksPass
-    renderSubdomainPolicy: enabled
+    autoDeployTrigger: commit
     envVars:
-      - key: PORT
-        value: "3000"
-      - key: CAPABILITY_MASTER_KEY
-        generateValue: true
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
       - key: ALLOW_LOCALHOST_CONNECTORS
         value: "false"
       - key: ALLOW_PRIVATE_CONNECTORS
