@@ -1,0 +1,19 @@
+services:
+  relay:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${RELAY_PORT:-3000}:3000"
+    volumes:
+      - relay-data:/app/.data
+    environment:
+      CAPABILITY_MASTER_KEY: ${CAPABILITY_MASTER_KEY:-}
+      ALLOW_LOCALHOST_CONNECTORS: ${ALLOW_LOCALHOST_CONNECTORS:-true}
+      ALLOW_PRIVATE_CONNECTORS: ${ALLOW_PRIVATE_CONNECTORS:-false}
+      ALLOW_INSECURE_CONNECTORS: ${ALLOW_INSECURE_CONNECTORS:-false}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-25}
+      MAX_PROVIDER_RESPONSE_MB: ${MAX_PROVIDER_RESPONSE_MB:-50}
+      RUN_WORKER_INTERVAL_MS: ${RUN_WORKER_INTERVAL_MS:-700}
+
+volumes:
+  relay-data:
