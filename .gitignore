@@ -1,0 +1,23 @@
+node_modules/
+.next/
+.data/
+.env
+.env.local
+playwright-report/
+test-results/
+*.log
+
+# Recovery safety
+node_modules/
+.next/
+dist/
+build/
+coverage/
+.data/
+*.log
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+.DS_Store
