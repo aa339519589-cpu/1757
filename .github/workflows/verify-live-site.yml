@@ -1,0 +1,31 @@
+name: Verify live site
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/verify-live-site.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-live-site:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify public web
+        shell: bash
+        run: |
+          url="https://cdn.jsdelivr.net/gh/aa339519589-cpu/1757@main/site/index.html"
+          for attempt in $(seq 1 18); do
+            status=$(curl -L -sS -o /tmp/site.html -w '%{http_code}' "$url" || true)
+            if [ "$status" = "200" ] && grep -q '<title>Relay' /tmp/site.html; then
+              echo "Live site verified: $url"
+              exit 0
+            fi
+            echo "Attempt $attempt: HTTP $status"
+            sleep 10
+          done
+          echo "Public site did not become healthy in time."
+          exit 1
