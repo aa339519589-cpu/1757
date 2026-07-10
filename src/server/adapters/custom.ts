@@ -8,10 +8,23 @@ import type { AdapterContext, PollResult, ProviderAdapter } from "./types";
 
 const forbiddenHeaders = new Set(["host", "content-length", "transfer-encoding", "connection", "proxy-authorization"]);
 
+type EncodedAsset = {
+  __asset: true;
+  bytes: Buffer;
+  name: string;
+  mimeType: string;
+};
+
 function configOf(connection: ConnectionInternal): CustomConnectorConfig {
-  const config = connection.config.custom;
+  const config = connection.config?.custom;
   if (!config || typeof config !== "object") throw new PlatformError("INVALID_CONNECTOR", "This custom connector configuration is incomplete.", 422);
   return config as CustomConnectorConfig;
+}
+
+function isEncodedAsset(value: unknown): value is EncodedAsset {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<EncodedAsset>;
+  return candidate.__asset === true && Buffer.isBuffer(candidate.bytes) && typeof candidate.name === "string" && typeof candidate.mimeType === "string";
 }
 
 function setNested(target: Record<string, unknown>, path: string, value: unknown): void {
@@ -33,7 +46,7 @@ async function encodeField(field: InputField, value: unknown, contentType: Custo
   if (encoding === "value") return value;
   if (encoding === "base64") return bytes.toString("base64");
   if (encoding === "data-url") return `data:${asset.mimeType};base64,${bytes.toString("base64")}`;
-  return { __asset: true, bytes, name: asset.name, mimeType: asset.mimeType };
+  return { __asset: true, bytes, name: asset.name, mimeType: asset.mimeType } satisfies EncodedAsset;
 }
 
 function applyAuth(
@@ -86,9 +99,8 @@ async function buildRequest(
     if (config.contentType === "multipart/form-data") {
       const form = new FormData();
       for (const [key, value] of Object.entries(mappedBody)) {
-        if (value && typeof value === "object" && "__asset" in value) {
-          const asset = value as { bytes: Buffer; name: string; mimeType: string };
-          form.append(key, new Blob([new Uint8Array(asset.bytes)], { type: asset.mimeType }), asset.name);
+        if (isEncodedAsset(value)) {
+          form.append(key, new Blob([new Uint8Array(value.bytes)], { type: value.mimeType }), value.name);
         } else if (value !== undefined) form.append(key, typeof value === "string" ? value : JSON.stringify(value));
       }
       body = form;
@@ -113,9 +125,10 @@ async function perform(
   const request = await buildRequest(connection, input, options);
   const response = await safeFetch(request.url, request.init);
   const contentType = response.headers.get("content-type") ?? "";
-  let parsed: unknown = response.text();
+  const rawText = await response.text();
+  let parsed: unknown = rawText;
   if (contentType.includes("json")) {
-    try { parsed = response.json(); } catch { /* handled as raw text */ }
+    try { parsed = rawText ? JSON.parse(rawText) : null; } catch { /* handled as raw text */ }
   }
   if (!response.ok) {
     const rawDetail = typeof parsed === "string" ? parsed : JSON.stringify(parsed);
