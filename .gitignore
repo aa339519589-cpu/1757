@@ -1,19 +1,11 @@
 node_modules/
 .next/
-.data/
-.env
-.env.local
-playwright-report/
-test-results/
-*.log
-
-# Recovery safety
-node_modules/
-.next/
 dist/
 build/
 coverage/
 .data/
+playwright-report/
+test-results/
 *.log
 .env
 .env.*
