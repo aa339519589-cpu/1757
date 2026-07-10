@@ -1,0 +1,31 @@
+name: Verify live site
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/verify-live-site.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-live-site:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Wait for public site
+        shell: bash
+        run: |
+          url="https://aa339519589-cpu.github.io/1757/"
+          for attempt in $(seq 1 36); do
+            status=$(curl -L -sS -o /tmp/site.html -w '%{http_code}' "$url" || true)
+            if [ "$status" = "200" ] && grep -q '<title>Relay' /tmp/site.html; then
+              echo "Live site verified: $url"
+              exit 0
+            fi
+            echo "Attempt $attempt: HTTP $status"
+            sleep 10
+          done
+          echo "Public site did not become healthy in time."
+          exit 1
