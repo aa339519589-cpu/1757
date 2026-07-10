@@ -2,16 +2,17 @@ name: CI
 
 on:
   pull_request:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
-  pull-requests: write
 
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -23,33 +24,13 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install
-
-      - name: Run verification
-        id: verify
-        shell: bash
-        run: |
-          set +e
-          mkdir -p ci-results
-          failed=0
-          for check in typecheck lint test build; do
-            echo "## $check" | tee -a ci-results/report.md
-            pnpm "$check" > "ci-results/$check.log" 2>&1
-            status=$?
-            echo "exit_code=$status" >> "ci-results/report.md"
-            echo '```text' >> "ci-results/report.md"
-            tail -n 120 "ci-results/$check.log" >> "ci-results/report.md"
-            echo '```' >> "ci-results/report.md"
-            echo >> "ci-results/report.md"
-            if [ "$status" -ne 0 ]; then failed=1; fi
-          done
-          echo "failed=$failed" >> "$GITHUB_OUTPUT"
-
-      - name: Comment verification report
-        if: always() && github.event_name == 'pull_request'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh pr comment "${{ github.event.pull_request.number }}" --body-file ci-results/report.md
-
-      - name: Fail when verification fails
-        if: steps.verify.outputs.failed == '1'
-        run: exit 1
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Lint
+        run: pnpm lint
+      - name: Test
+        run: pnpm test
+      - name: Build
+        run: pnpm build
+      - name: Build deployment image
+        run: docker build --tag relay:test .
